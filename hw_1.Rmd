@@ -1,0 +1,150 @@
+---
+title: "Data Vizualization 2: HW2"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+date: "2023-01-15"
+---
+
+```{r message=TRUE, warning=TRUE, include=FALSE}
+library(data.table)
+library(ggplot2)
+library(tidyverse)
+library(formattable)
+library(dplyr)  
+library(tables)
+library(gganimate)
+library(ggrepel)
+
+df <- data.table(readRDS('flats.rds'))
+```
+
+# Task 1
+```{r}
+df$Area <- as.numeric(df$Area)
+
+ggplot(df, aes(x=Area))+
+  geom_histogram(color= "#EDF6F9", fill="#006D77", bins = 40) + 
+  theme_bw()+
+  ggtitle("Distribution of the Area of flats (m2)")
+```
+
+# Task 2
+```{r}
+
+df2 <- df[!is.na(df$Condition), ]
+
+ggplot(df2, aes(x=Price, fill=Condition)) +
+  geom_density(alpha=0.4) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(), legend.position = "top") + 
+  scale_x_continuous(label = function(x) paste0(scales::comma(x)," Ft")) +
+  guides(fill = guide_legend(nrow = 1)) +
+  ggtitle("Price Distribution for flats in different conditions", "Note the legend position and the x axis label formatter")
+
+```
+
+# Task 3
+```{r}
+
+ggplot(df2, aes(x=Area, y=Price, color = Condition)) +
+  geom_point(size=2, alpha=0.6) +
+  geom_smooth(method=lm, se=FALSE)+ 
+  theme_bw()+
+  theme(legend.position = "bottom")+
+  scale_x_continuous(label = function(x) paste0(scales::comma(x)," m2"))+ 
+  scale_y_continuous(label = function(x) paste0(scales::comma(x)," Ft")) +
+  guides(color = guide_legend(nrow = 1)) +
+  ggtitle("How the condition of flats effects price to area", "Note the m2 formatter as well")
+
+
+```
+
+# Task 4
+```{r}
+df3 <- df %>% arrange(District) %>% 
+  select(District, Price) %>% 
+  group_by(District)
+
+df3 <- aggregate(Price~.,df3,FUN = mean)
+
+ggplot(data=df3, aes(x=District, y=Price)) +
+  theme_bw() +
+  geom_histogram(stat="identity", color= "#EDF6F9", fill="#006D77", bins = 23) + 
+  scale_y_continuous(label = function(x) paste0(scales::comma(x)," Ft")) +
+  scale_x_discrete(limits = c(1:23), expand = c(0.005, 0))
+```
+
+# Task 5
+```{r}
+
+df4 <- df %>% arrange(District) %>% 
+  select(District, Price) %>% 
+  group_by(District)
+
+df4$District <- as.factor(df4$District)
+
+ggplot(data=df4, aes(x=District, y=Price)) +
+  theme_bw() +
+  geom_violin(color= "#006D77", fill="#66B7B0") + 
+  scale_y_continuous(label = function(x) paste0(scales::comma(x)," Ft")) +
+  ggtitle("You can draw a boxplot if not finding this geom")
+
+
+```
+
+# Task 6
+```{r}
+df5 <- select_if(df, is.numeric) 
+
+t1 <- df5 %>% group_by(District) %>% 
+  summarise(District.mean = mean(District, na.rm = TRUE),
+        District.sd = sd(District, na.rm = TRUE))
+ 
+t2 <- df5 %>% group_by(District) %>% 
+  summarise(Area.mean = mean(Area, na.rm = TRUE),
+        Area.sd = sd(Area, na.rm = TRUE))
+
+t3 <- df5 %>% group_by(District) %>% 
+  summarise(Num_whole_rooms.mean = mean(Num_whole_rooms, na.rm = TRUE),
+        Num_whole_rooms.sd = sd(Num_whole_rooms, na.rm = TRUE))
+
+t4 <- df5 %>% group_by(District) %>% 
+  summarise(Num_half_rooms.mean = mean(Num_half_rooms, na.rm = TRUE),
+        Num_half_rooms.sd = sd(Num_half_rooms, na.rm = TRUE))
+
+t5 <- df5 %>% group_by(District) %>% 
+  summarise(Price.mean = mean(Price, na.rm = TRUE),
+        Price.sd = sd(Price, na.rm = TRUE))
+
+t6 <- df5 %>% group_by(District) %>% 
+  summarise(Floor.mean = mean(Floor, na.rm = TRUE),
+        Floor.sd = sd(Floor, na.rm = TRUE))
+
+t7 <- df5 %>% group_by(District) %>% 
+  summarise(Floors_in_bdg.mean = mean(Floors_in_bdg, na.rm = TRUE),
+        Floors_in_bdg.sd = sd(Floors_in_bdg, na.rm = TRUE))
+
+t8 <- df5 %>% group_by(District) %>% 
+  summarise(Overhead.mean = mean(Overhead, na.rm = TRUE),
+        Overhead.sd = sd(Overhead, na.rm = TRUE))
+
+t9 <- df5 %>% group_by(District) %>% 
+  summarise("Parking_fee(monthly).mean" = mean(`Parking_fee(monthly)`, na.rm = TRUE),
+        "Parking_fee(monthly).sd" = sd(`Parking_fee(monthly)`, na.rm = TRUE))
+
+districts <- list(t1,t2,t3,t4,t5,t6,t7,t8,t9) %>% reduce(inner_join, by='District')
+
+str(districts)
+
+```
+
+#Then apply MDS
+```{r warning=FALSE}
+mds <- data.frame(cmdscale(dist(scale(districts))))
+mds$districts <- row.names(mds)
+ggplot(mds, aes(X1, X2, label= districts)) + labs(title = "Budapest Districts") + theme_void() + theme(plot.title = element_text(hjust = 0.5)) + geom_label_repel()
+```
+
+
